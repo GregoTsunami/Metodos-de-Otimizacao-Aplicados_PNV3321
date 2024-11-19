@@ -13,7 +13,7 @@ function [d_max, x_traj, y_traj] = foguete_dist_max(m_agua, theta)
     Patm = 101325; % PressaoAtmosferica (Pa)
     Ca = 0.5; % CoefArrasto
     g = 9.8; % Gravidade (m/s^2)
-    dt = 0.01; % PassoTempo (s)
+    dt = 0.005; % PassoTempo (s)
     
     % Condições iniciais
     t_k = 0; % TempoInicial (s)
@@ -108,7 +108,7 @@ m_agua = 1.5; % Massa inicial de água (kg)
 theta = 45; % Ângulo da rampa (graus)
 
 [d_max, x_traj, y_traj] = foguete_dist_max(m_agua, theta);
-fprintf('A distância máxima horizontal é %.5f metros.\n', dist_max);
+fprintf('A distância máxima horizontal é %.5f metros.\n', d_max);
 
 % Plotar a trajetória
 figure;
@@ -138,11 +138,10 @@ m_agua_min = 0.1; % (kg)
 m_agua_max = 2.9; % (kg)
 
 theta_min = 10.1; % (°)
-theta_max = 89.9; % (°)
+theta_max = 80.9; % (°)
 
 m_agua_values = linspace(m_agua_min, m_agua_max, 100);
 theta_values = deg2rad(linspace(theta_min, theta_max, 100));
-
 
 % Teste pra ver melhor valor
 melhor_dist = -inf;
@@ -164,15 +163,34 @@ fprintf('Melhor ângulo: %.5f rad \n', melhor_theta)
 fprintf('Melhor distância: %.5f m\n', melhor_dist);
 
 % A partir daqui não sei o que ta acontecendo
-% Plot 3D
+% Plot 3D de theta x m_agua x Fobj
 [Theta, M_agua] = meshgrid(theta_values, m_agua_values);
-fobj_values = zeros(length(m_agua_values), length(theta_values));
+%fobj_values = zeros(length(m_agua_values), length(theta_values), 'double');
 
-for i = 1:length(m_agua_values)
-    for j = 1:length(theta_values)
-        fobj_values(i, j) = foguete_dist_max(m_agua_values(i), theta_values(j));
+%for i = 1:length(m_agua_values)
+%    for j = 1:length(theta_values)
+%        fobj_values(i, j) = foguete_dist_max(m_agua_values(i), theta_values(j));
+%    end
+%end
+
+[m,n] = size(Theta);
+fobj_values = zeros(m, n, 'double');
+for j = 1:n
+    for i = 1:m
+        fobj_values(i,j) = foguete_dist_max(M_agua(i,j), Theta(i,j));
     end
 end
+
+
+% Teste
+%[M, Theta] = meshgrid(m_agua_values, theta_values);
+%fobj_values = zeros(size(M_agua, 1));
+%for i = 1:size(M_agua, 1)
+%    for j = 1:size(M_agua:2)
+%        [fobj_values(i,j),~,~] = foguete_dist_max(M(i,j), Theta(i,j));
+%    end
+%end
+
 
 figure;
 surf(Theta, M_agua, fobj_values);
