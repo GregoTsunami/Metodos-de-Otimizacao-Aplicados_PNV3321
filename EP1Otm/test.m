@@ -51,16 +51,16 @@ function d_max = foguete_dist_max(m_agua, theta)
         
         % Normal, Acelerações e Ângulo Foguete
         if (h_k < hr) && (d_k < hr / tan(theta)) && (Uy_k > 0)
-            N_k = g * (mg + m_agua_k1) * cos(theta);
-            ax_k = ((E_k - Fa_k) * cos(theta) - N_k * sin(theta)) / (m_agua_k1 + mg);
-            ay_k = ((E_k - Fa_k) * sin(theta) + N_k * cos(theta)) / (m_agua_k1 + mg) - g;
-            theta_k = theta*(pi/180);
+            theta_k = theta*(pi/180)
+            N_k = g * (mg + m_agua_k1) * cos(theta_k);
+            ax_k = ((E_k - Fa_k) * cos(theta_k) - N_k * sin(theta_k)) / (m_agua_k1 + mg);
+            ay_k = ((E_k - Fa_k) * sin(theta_k) + N_k * cos(theta_k)) / (m_agua_k1 + mg) - g;
         else
             N_k = 0;
-            ax_k = ((E_k - Fa_k) * cos(theta)) / (m_agua_k1 + mg);
-            ay_k = ((E_k - Fa_k) * sin(theta)) / (m_agua_k1 + mg) - g;
             x = Uy_k/Ux_k;
             theta_k = atan(x);
+            ax_k = ((E_k - Fa_k) * cos(theta_k)) / (m_agua_k1 + mg);
+            ay_k = ((E_k - Fa_k) * sin(theta_k)) / (m_agua_k1 + mg) - g;
         end
         
         if h_k >= 0
