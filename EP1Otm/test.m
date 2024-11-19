@@ -21,6 +21,8 @@ function [d_max, x_traj, y_traj] = foguete_dist_max(m_agua, theta)
     h_k = 0.0; % AlturaInicial (m)
     Ux_k = 0.1; % VelocidadeXInicial (m/s)
     Uy_k = 0.1; % VelocidadeYInicial (m/s)
+    ax_k = 0.0; % AceleracaoXInicial (m/s^2)
+    ay_k = 0.0; % AceleracaoYInicial (m/s^2)
     P_k = P; % PressaoInternaInicial (Pa)
     m_agua_k = m_agua; % MassaAguaInicial (kg)
     theta_k = theta; %AnguloFoguete (°)
@@ -42,17 +44,15 @@ function [d_max, x_traj, y_traj] = foguete_dist_max(m_agua, theta)
             U_agua_k = 0;
         end
         
-        m_agua_k1 = max(m_agua_k - U_agua_k * Ab * rho_agua * dt, 0); % m_agua^(k-1)
-        
-        % Pressão
-        if m_agua_k > 0
-            P_k1 = P_k * (Vg - m_agua_k / rho_agua) / (Vg - m_agua_k1 / rho_agua);
-        else
-            P_k1 = 0; % Após ejeção total da água, pressão igual à zero (ou é ?)
-        end
+        m_agua_k1 = m_agua_k;
+        m_agua_k = max(m_agua_k - U_agua_k * Ab * rho_agua * dt, 0); % m_agua^(k-1)
+
+        % Posições
+        d_k = d_k + Ux_k * dt + 0.5 * ax_k * dt^2;
+        h_k = h_k + Uy_k * dt + 0.5 * ay_k * dt^2;
         
         % Empuxo
-        E_k = max((P_k1 - Patm) * Ab, 0);
+        E_k = max((P_k - Patm) * Ab, 0);
         
         % Arrasto
         Fa_k = 0.5 * Ca * rho_ar * ((Ux_k)^2 + (Uy_k)^2) * Af;
@@ -74,6 +74,7 @@ function [d_max, x_traj, y_traj] = foguete_dist_max(m_agua, theta)
             ay_k = ((E_k - Fa_k) * sin(theta_k)) / (m_agua_k1 + mg) - g;
         end
         
+        % Velocidades
         if h_k >= 0
             Ux_k = Ux_k + ax_k*dt;
             Uy_k = Uy_k + ay_k*dt;
@@ -81,14 +82,14 @@ function [d_max, x_traj, y_traj] = foguete_dist_max(m_agua, theta)
             Ux_k = 0;
             Uy_k = 0;
         end
-        
-        % Posições
-        d_k = d_k + Ux_k * dt + 0.5 * ax_k * dt^2;
-        h_k = h_k + Uy_k * dt + 0.5 * ay_k * dt^2;
-        
-        % Att Variáveis
-        m_agua_k = m_agua_k1;
-        P_k = P_k1;
+
+        % Pressão
+        if m_agua_k > 0
+            P_k1 = P_k;
+            P_k = P_k1 * (Vg - m_agua_k1 / rho_agua) / (Vg - m_agua_k1 / rho_agua);
+        else
+            P_k = 0; % Após ejeção total da água, pressão igual à zero (ou é ?)
+        end
         
         % Tempo
         t_k = t_k + dt;
@@ -136,7 +137,7 @@ grid on;
 m_agua_min = 0.1; % (kg)
 m_agua_max = 2.9; % (kg)
 
-theta_min = 10; % (°)
+theta_min = 10.1; % (°)
 theta_max = 89.9; % (°)
 
 m_agua_values = linspace(m_agua_min, m_agua_max, 100);
