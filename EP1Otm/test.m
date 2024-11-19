@@ -1,4 +1,5 @@
-function d_max = foguete_distancia_maxima(m_agua, theta)
+function d_max = foguete_dist_max(m_agua, theta)
+    % Parâmetros
     mg = 0.1; % MassaFoguete (kg)
     Vg = 0.003; % VolumeGarrafa (m^3)
     Ab = 7.85398e-5; % AreaBocal (m^2)
@@ -15,7 +16,6 @@ function d_max = foguete_distancia_maxima(m_agua, theta)
     dt = 0.01; % PassoTempo (s)
     
     % Condições iniciais
-    theta = deg2rad(theta); % AnguloRampaInicial (rad)
     t_k = 0; % TempoInicial (s)
     d_k = 0; % DistXInicial (m)
     h_k = hr; % AlturaInicial (m)
@@ -23,8 +23,9 @@ function d_max = foguete_distancia_maxima(m_agua, theta)
     Uy_k = 0; % VelocidadeYInicial (m/s)
     P_k = P; % PressaoInternaInicial (Pa)
     m_agua_k = m_agua; % MassaAguaInicial (kg)
+    theta_k = theta; %AnguloFoguete (°)
     
-    % Simulação do movimento
+    % Simulação
     while h_k >= 0
         % Velocidade e Massa de água
         if P_k > Patm
@@ -48,15 +49,18 @@ function d_max = foguete_distancia_maxima(m_agua, theta)
         % Arrasto
         Fa_k = 0.5 * Ca * rho_ar * ((Ux_k)^2 + (Uy_k)^2) * Af;
         
-        % Normal e Acelerações
+        % Normal, Acelerações e Ângulo Foguete
         if (h_k < hr) && (d_k < hr / tan(theta)) && (Uy_k > 0)
             N_k = g * (mg + m_agua_k1) * cos(theta);
             ax_k = ((E_k - Fa_k) * cos(theta) - N_k * sin(theta)) / (m_agua_k1 + mg);
             ay_k = ((E_k - Fa_k) * sin(theta) + N_k * cos(theta)) / (m_agua_k1 + mg) - g;
+            theta_k = theta*(pi/180);
         else
             N_k = 0;
             ax_k = ((E_k - Fa_k) * cos(theta)) / (m_agua_k1 + mg);
             ay_k = ((E_k - Fa_k) * sin(theta)) / (m_agua_k1 + mg) - g;
+            x = Uy_k/Ux_k;
+            theta_k = atan(x);
         end
         
         if h_k >= 0
@@ -86,10 +90,94 @@ end
 
 
 
+% A)
+% Chutes Iniciais
+%m_agua = 0.5; % Massa inicial de água (kg) 
+%theta = 45; % Ângulo da rampa (graus)
+
+%dist_max = foguete_dist_max(m_agua, theta);
+%fprintf('A distância máxima horizontal é %.5f metros.\n', dist_max);
 
 
-m_agua = 0.5; % Massa inicial de água (kg)
-theta = 30; % Ângulo da rampa (graus)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% B)
 
-distancia_maxima = foguete_distancia_maxima(m_agua, theta);
-fprintf('A distância máxima horizontal é %.5f metros.\n', distancia_maxima);
+% Função Objetivo:
+% Maximizar d_max(m_agua, theta)
+
+
+% Variávveis e Restrições
+% m_agua: [0.1, 3.0] (0 < m_agua < rho_agua*Vg)
+% theta: [0, 90] ° (0 < theta < 90°)
+%P_k - Patm > 0 para ejetar
+
+
+% Intervalo para Variáveis
+m_agua_min = 0.1;
+m_agua_max = 2.9; %rho_agua*Vg
+
+theta_min = 10;
+theta_max = 89.9;
+
+m_agua_values = linspace(m_agua_min, m_agua_max, 200);
+theta_values = linspace(theta_min, theta_max, 200);
+
+
+% Teste pra ver melhor valor
+melhor_dist = -inf;
+melhor_m_agua = 0;
+melhor_theta = 0;
+
+for m_agua = m_agua_values
+    for theta = theta_values
+        dist = foguete_dist_max(m_agua, theta);
+        if dist > melhor_dist
+            melhor_dist = dist;
+            melhor_m_agua = m_agua;
+            melhor_theta = theta;
+        end
+    end
+end
+fprintf('Melhor massa de água: %.5f kg\n', melhor_m_agua);
+fprintf('Melhor ângulo: %.5f graus\n', melhor_theta)
+fprintf('Melhor distância: %.5f m\n', melhor_dist);
+
+
+% A partir daqui não sei o que ta acontecendo
+% Plot 3D
+[Theta, M_agua] = meshgrid(theta_values, m_agua_values);
+fobj_values = zeros(length(m_agua_values), length(theta_values));
+
+for i = 1:length(m_agua_values)
+    for j = 1:length(theta_values)
+        fobj_values(i, j) = foguete_dist_max(m_agua_values(i), theta_values(j));
+    end
+end
+
+figure;
+surf(Theta, M_agua, fobj_values);
+xlabel('\theta (graus)');
+ylabel('m_{agua} (kg)');
+zlabel('Distância Máxima (m)');
+title('Superfície da Função Objetivo: m_{agua} × \theta × f_{obj}');
+grid on;
+
+
+% Com Fmincon
+fobj = @(x) -foguete_dist_max(x(1), x(2));
+
+% Restrições
+lb = [m_agua_min, theta_min];
+ub = [m_agua_max, theta_max];
+
+% Ponto inicial arbitrário
+x0 = [0.5, 45]; % m_agua = 0.5 kg, theta = 45 °
+
+% Chamando o fmincon
+options = optimoptions('fmincon', 'Display', 'iter', 'Algorithm', 'sqp');
+[x_opt, fval_opt] = fmincon(fobj, x0, [], [], [], [], lb, ub, [], options);
+
+% Resultado da otimização
+fprintf('Massa de água ótima: %.5f kg\n', x_opt(1));
+fprintf('Ângulo ótimo: %.5f graus\n', x_opt(2));
+fprintf('Distância máxima otimizada: %.5f m\n', -fval_opt);
