@@ -1,4 +1,4 @@
-function d_max = foguete_dist_max(m_agua, theta)
+function [d_max, x_traj, y_traj] = foguete_dist_max(m_agua, theta)
     % Parâmetros
     mg = 0.1; % MassaFoguete (kg)
     Vg = 0.003; % VolumeGarrafa (m^3)
@@ -17,16 +17,24 @@ function d_max = foguete_dist_max(m_agua, theta)
     
     % Condições iniciais
     t_k = 0; % TempoInicial (s)
-    d_k = 0; % DistXInicial (m)
-    h_k = hr; % AlturaInicial (m)
+    d_k = 0.0; % DistXInicial (m)
+    h_k = 0.0; % AlturaInicial (m)
     Ux_k = 0.1; % VelocidadeXInicial (m/s)
     Uy_k = 0.1; % VelocidadeYInicial (m/s)
     P_k = P; % PressaoInternaInicial (Pa)
     m_agua_k = m_agua; % MassaAguaInicial (kg)
     theta_k = theta; %AnguloFoguete (°)
+
+    % Plot do gráfico
+    x_traj = []; % Trajetória em X
+    y_traj = []; % Trajetória em Y
     
     % Simulação
     while h_k >= 0
+        % Para o gráfico
+        x_traj = [x_traj, d_k];
+        y_traj = [y_traj, h_k];
+
         % Velocidade e Massa de água
         if P_k > Patm
             U_agua_k = sqrt(2 * (P_k - Patm) / rho_agua);
@@ -40,7 +48,7 @@ function d_max = foguete_dist_max(m_agua, theta)
         if m_agua_k > 0
             P_k1 = P_k * (Vg - m_agua_k / rho_agua) / (Vg - m_agua_k1 / rho_agua);
         else
-            P_k1 = Patm; % Após ejeção total da água, pressão igual à atmosférica
+            P_k1 = 0; % Após ejeção total da água, pressão igual à zero (ou é ?)
         end
         
         % Empuxo
@@ -57,11 +65,11 @@ function d_max = foguete_dist_max(m_agua, theta)
             ay_k = ((E_k - Fa_k) * sin(theta_k) + N_k * cos(theta_k)) / (m_agua_k1 + mg) - g;
         else
             N_k = 0;
-            %if Ux_k ~= 0
-            theta_k = atan(Uy_k/Ux_k);
-            %else
-            %    theta_k = theta*(pi/180);
-            %end
+            if Ux_k ~= 0
+                theta_k = atan(Uy_k/Ux_k);
+            else
+                theta_k = theta*(pi/180);
+            end
             ax_k = ((E_k - Fa_k) * cos(theta_k)) / (m_agua_k1 + mg);
             ay_k = ((E_k - Fa_k) * sin(theta_k)) / (m_agua_k1 + mg) - g;
         end
@@ -95,11 +103,19 @@ end
 
 % A)
 % Chutes Iniciais
-%m_agua = 0.5; % Massa inicial de água (kg) 
-%theta = 45; % Ângulo da rampa (graus)
+m_agua = 1.5; % Massa inicial de água (kg) 
+theta = 45; % Ângulo da rampa (graus)
 
-%dist_max = foguete_dist_max(m_agua, theta);
-%fprintf('A distância máxima horizontal é %.5f metros.\n', dist_max);
+[d_max, x_traj, y_traj] = foguete_dist_max(m_agua, theta);
+fprintf('A distância máxima horizontal é %.5f metros.\n', dist_max);
+
+% Plotar a trajetória
+figure;
+plot(x_traj, y_traj, 'b-', 'LineWidth', 1.5);
+xlabel('Distância Horizontal (m)');
+ylabel('Altura (m)');
+title('Trajetória do Foguete');
+grid on;
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
