@@ -19,13 +19,13 @@ function [d_max, x_traj, y_traj] = foguete_dist_max(m_agua, theta)
     t_k = 0; % TempoInicial (s)
     d_k = 0.0; % DistXInicial (m)
     h_k = 0.0; % AlturaInicial (m)
-    Ux_k = 0.1; % VelocidadeXInicial (m/s)
-    Uy_k = 0.1; % VelocidadeYInicial (m/s)
+    Ux_k = 0.01; % VelocidadeXInicial (m/s)
+    Uy_k = 0.01; % VelocidadeYInicial (m/s)
     ax_k = 0.0; % AceleracaoXInicial (m/s^2)
     ay_k = 0.0; % AceleracaoYInicial (m/s^2)
     P_k = P; % PressaoInternaInicial (Pa)
     m_agua_k = m_agua; % MassaAguaInicial (kg)
-    %theta_k = theta; %AnguloFoguete (°)
+    theta_k = theta; %AnguloFoguete (°)
 
     % Plot do gráfico
     x_traj = []; % Trajetória em X
@@ -34,16 +34,16 @@ function [d_max, x_traj, y_traj] = foguete_dist_max(m_agua, theta)
     % Simulação
     while h_k >= 0
 
-        % Velocidade de água
+        % Velocidade água
         if P_k - Patm > 0
             U_agua_k = sqrt(2 * (P_k - Patm) / rho_agua);
         else
             U_agua_k = 0;
         end
         
-        % Massa de água
-        m_agua_k1 = m_agua_k;
-        m_agua_k = max(m_agua_k - U_agua_k * Ab * rho_agua * dt, 0); % m_agua^(k-1)
+        % Massa água
+        m_agua_anterior = m_agua_k; % m_agua^(k-1)
+        m_agua_k = max(m_agua_k - U_agua_k * Ab * rho_agua * dt, 0); % m_agua^(k)
 
         % Posições
         d_k = d_k + Ux_k * dt + 0.5 * ax_k * dt^2;
@@ -84,16 +84,15 @@ function [d_max, x_traj, y_traj] = foguete_dist_max(m_agua, theta)
         % Pressão
         if m_agua_k > 0
             P_k1 = P_k;
-            P_k = P_k1 * (Vg - m_agua_k1 / rho_agua) / (Vg - m_agua_k / rho_agua);
+            P_k = P_k1 * (Vg - m_agua_anterior / rho_agua) / (Vg - m_agua_k / rho_agua);
         else
             P_k = 0; % Após ejeção total da água, pressão igual à zero
         end
 
-        if h_k >= 0
-            x_traj = [x_traj, d_k];
-            y_traj = [y_traj, h_k];
-        end
-        
+        % Trajetórias por loop
+        x_traj = [x_traj, d_k];
+        y_traj = [y_traj, h_k];
+
         % Tempo
         t_k = t_k + dt;
     end
@@ -143,25 +142,18 @@ text(0.02*max(x_traj), 0.95*max(y_traj), ...
 
 
 % Intervalo para Variáveis
-
 m_agua_min = 0.1; % (kg)
 m_agua_max = 2.9; % (kg)
 
-theta_min = 10; % (°)
-theta_max = 89; % (°)
+theta_min = 10.1; % (°)
+theta_max = 89.9; % (°)
 
 m_agua_values = linspace(m_agua_min, m_agua_max, 100);
 theta_values = deg2rad(linspace(theta_min, theta_max, 100));
 
-% A partir daqui não sei o que ta acontecendo
 % Função Objetivo
-fobj_values = zeros(length(m_agua_values), length(theta_values), 'double');
-
-for i = 1:length(m_agua_values)
-    for j = 1:length(theta_values)
-        fobj_values(i, j) = foguete_dist_max(m_agua_values(i), theta_values(j));
-    end
-end
+[M_agua, Theta] = meshgrid(m_agua_values, theta_values);
+fobj_values = arrayfun(@(m, theta) foguete_dist_max(m, theta), M_agua, Theta);
 
 % Verificação do máximo global
 [max_dist, max_idx] = max(fobj_values(:));
@@ -169,84 +161,15 @@ end
 fprintf('Máxima distância: %.2f m, com θ = %.2f° e massa = %.2f kg\n', ...
     max_dist, theta_values(max_col), m_agua_values(max_row));
 
-% Plot 3D de theta x m_agua x Fobj
-[Theta, M_agua] = meshgrid(theta_values, m_agua_values);
+% Plotando o gráfico 3D
 figure;
-surf(Theta, M_agua, fobj_values);
-xlabel('Ângulo \theta (graus)');
-ylabel('Massa de água (kg)');
-zlabel('Distância máxima (m)');
-title('Distância máxima em função de \theta e massa de água');
+surf(M_agua, rad2deg(Theta), fobj_values, 'EdgeColor', 'none');
 colormap('jet');
+xlabel('Massa de Água (kg)');
+ylabel('Ângulo de Inclinação (°)');
+zlabel('Distância Máxima (m)');
+title('M_agua x Theta x fobj');
 colorbar;
-shading interp;
-view(135, 30);
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
-% % Teste 1 -> meudeus
-% [M, Theta] = meshgrid(m_agua_values, theta_values);
-% fobj_values = zeros(size(M_agua, 1));
-% for i = 1:size(M_agua, 1)
-%    for j = 1:size(M_agua:2)
-%        [fobj_values(i,j),~,~] = foguete_dist_max(M(i,j), Theta(i,j));
-%    end
-% end
-
-% % Plotando o gráfico 3D
-% figure;
-% surf(M, Theta * 180 / pi, F_obj, 'EdgeColor', 'none'); % Theta em graus no gráfico
-% colormap('jet');
-% xlabel('Massa de Água (kg)');
-% ylabel('Ângulo de Inclinação (°)');
-% zlabel('Distância Máxima (m)');
-% title('Campo de Soluções: Massa de Água x Ângulo x Distância');
-% colorbar;
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% % Teste 2 -> meudeus 2
-% [M, Theta] = meshgrid(m_agua_values, theta_values);
-% F_obj = zeros(size(M));
-% for i = 1:size(M, 1)
-%     for j = 1:size(M, 2)
-%         F_obj(i, j) = foguete_dist_max(M(i, j), Theta(i, j));
-%     end
-% end
-
-% % Plotando o gráfico 3D
-% figure;
-% surf(M, Theta * 180 / pi, F_obj, 'EdgeColor', 'none'); % Theta em graus no gráfico
-% colormap('jet');
-% xlabel('Massa de Água (kg)');
-% ylabel('Ângulo de Inclinação (°)');
-% zlabel('Distância Máxima (m)');
-% title('Campo de Soluções: Massa de Água x Ângulo x Distância');
-% colorbar;
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% % Teste 3 - ;-;
-
-% [M, Theta] = meshgrid(m_agua_values, theta_values);
-% F_obj = zeros(size(M));
-
-% for i = 1:size(M, 1)
-%     for j = 1:size(M, 2)
-%         [F_obj(i, j)] = foguete_dist_max(M(i, j), Theta(i, j));
-%     end
-% end
-
-% % Plotando o gráfico 3D
-% figure;
-% surf(M, rad2deg(Theta), F_obj, 'EdgeColor', 'none');
-% colormap('jet');
-% xlabel('Massa de Água (kg)');
-% ylabel('Ângulo de Inclinação (°)');
-% zlabel('Distância Máxima (m)');
-% title('Campo de Soluções: Massa de Água x Ângulo x Distância');
-% colorbar;
-
-
-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
