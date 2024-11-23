@@ -26,6 +26,7 @@ function [d_max, x_traj, y_traj] = foguete_dist_max(m_agua, theta)
     P_k = P; % PressaoInternaInicial (Pa)
     m_agua_k = m_agua; % MassaAguaInicial (kg)
     theta_k = theta; %AnguloFoguete (°)
+    %U_agua_k = 0; %VelocidadeAguaInicial (m/s)
 
     % Plot do gráfico
     x_traj = []; % Trajetória em X
@@ -40,15 +41,18 @@ function [d_max, x_traj, y_traj] = foguete_dist_max(m_agua, theta)
         else
             U_agua_k = 0;
         end
-        
+
         % Massa água
         m_agua_anterior = m_agua_k; % m_agua^(k-1)
         m_agua_k = max(m_agua_k - U_agua_k * Ab * rho_agua * dt, 0); % m_agua^(k)
 
-        % Posições
-        d_k = d_k + Ux_k * dt + 0.5 * ax_k * dt^2;
-        h_k = h_k + Uy_k * dt + 0.5 * ay_k * dt^2;
-        
+        % Pressão
+        if m_agua_k > 0
+            P_k = P_k * (Vg - m_agua_anterior / rho_agua) / (Vg - m_agua_k / rho_agua);
+        else
+            P_k = 0; % Após ejeção total da água, pressão igual à zero
+        end
+
         % Empuxo
         E_k = max((P_k - Patm) * Ab, 0);
         
@@ -56,20 +60,15 @@ function [d_max, x_traj, y_traj] = foguete_dist_max(m_agua, theta)
         Fa_k = 0.5 * Ca * rho_ar * ((Ux_k)^2 + (Uy_k)^2) * Af;
         
         % Normal, Acelerações e Ângulo Foguete
-        if (h_k < hr) && (d_k < hr / tan(theta)) && (Uy_k > 0)
-            theta_k = theta*(pi/180);
+        if (h_k < hr) && (d_k < hr / tan(theta_k)) && (Uy_k > 0)
             N_k = g * (mg + m_agua_k) * cos(theta_k);
             ax_k = ((E_k - Fa_k) * cos(theta_k) - N_k * sin(theta_k)) / (m_agua_k + mg);
             ay_k = ((E_k - Fa_k) * sin(theta_k) + N_k * cos(theta_k)) / (m_agua_k + mg) - g;
         else
             %N_k = 0;
-            if Ux_k ~= 0
-                theta_k = atan(Uy_k/Ux_k);
-            else
-                theta_k = theta*(pi/180);
-            end
-            ax_k = ((E_k - Fa_k) * cos(theta_k)) / (m_agua_k + mg);
-            ay_k = ((E_k - Fa_k) * sin(theta_k)) / (m_agua_k + mg) - g;
+            theta_ka = atan(Uy_k/Ux_k);
+            ax_k = ((E_k - Fa_k) * cos(theta_ka)) / (m_agua_k + mg);
+            ay_k = ((E_k - Fa_k) * sin(theta_ka)) / (m_agua_k + mg) - g;
         end
         
         % Velocidades
@@ -81,13 +80,9 @@ function [d_max, x_traj, y_traj] = foguete_dist_max(m_agua, theta)
             Uy_k = 0;
         end
 
-        % Pressão
-        if m_agua_k > 0
-            P_k1 = P_k;
-            P_k = P_k1 * (Vg - m_agua_anterior / rho_agua) / (Vg - m_agua_k / rho_agua);
-        else
-            P_k = 0; % Após ejeção total da água, pressão igual à zero
-        end
+        % Posições
+        d_k = d_k + Ux_k * dt + 0.5 * ax_k * dt^2;
+        h_k = h_k + Uy_k * dt + 0.5 * ay_k * dt^2;
 
         % Trajetórias por loop
         x_traj = [x_traj, d_k];
@@ -95,22 +90,38 @@ function [d_max, x_traj, y_traj] = foguete_dist_max(m_agua, theta)
 
         % Tempo
         t_k = t_k + dt;
+        
+        % % Prints para Verificação
+        % fprintf(['d_k = %.5f\n' ...
+        %  'h_k = %.5f\n' ...
+        %  'Ux_k = %.5f\n' ...
+        %  'Uy_k = %.5f\n' ...
+        %  'ax_k = %.5f\n' ...
+        %  'ay_k = %.5f\n' ...
+        %  'Fa_k = %.5f\n' ...
+        %  'E_k = %.5f\n' ...
+        %  'P_k = %.5f\n' ...
+        %  'm_agua_k = %.5f\n' ...
+        %  'U_agua_k = %.5f\n'], ...
+        %  d_k, h_k, Ux_k, Uy_k, ax_k, ay_k, Fa_k, E_k, P_k, m_agua_k, U_agua_k);
+
+        % fprintf('\n');
+
     end
 
-    
     % Distância Máxima Horizontal
     d_max = max(x_traj);
 
 end
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % A)
 
 % Chutes Iniciais
 m_agua = 0.5; % Massa inicial de água (kg) 
-theta = 45; % Ângulo da rampa (graus)
+theta = deg2rad(45); % Ângulo da rampa (graus)
 
+% Função e Resultado
 [d_max, x_traj, y_traj] = foguete_dist_max(m_agua, theta);
 fprintf('A distância máxima horizontal é %.5f metros.\n', d_max);
 
@@ -128,11 +139,12 @@ text(0.02*max(x_traj), 0.95*max(y_traj), ...
     'FontSize', 10, 'BackgroundColor', 'white');
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % B)
 
 % Função Objetivo:
 % Maximizar d_max(m_agua, theta)
+% Minimizar -d_max(m_agua, theta)
 
 
 % Variávveis e Restrições:
@@ -140,6 +152,9 @@ text(0.02*max(x_traj), 0.95*max(y_traj), ...
 % theta: [0, 90] ° (0 < theta < 90°)
 % P_k - Patm > 0 para ejetar
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% C)
 
 % Intervalo para Variáveis
 m_agua_min = 0.1; % (kg)
@@ -173,40 +188,72 @@ colorbar;
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% C)
+% D)
 
-% Com Fmincon
-fobj = @(x) -foguete_dist_max(x(1), x(2));
+% Função Objetivo: min -d_max
+function neg_d_max = obj_foguete(params)
+    m_agua = params(1);
+    theta = params(2);
+    [d_max, ~, ~] = foguete_dist_max(m_agua, theta);
+    neg_d_max = -d_max; 
+end
 
-% Restrições
-lb = [m_agua_min, theta_min];
-ub = [m_agua_max, theta_max];
+% Limites
+lb = [m_agua_min, deg2rad(theta_min)]; % Limite inferior
+ub = [m_agua_max, deg2rad(theta_max)]; % Limite superior
 
-% Ponto inicial arbitrário
-x0 = [0.5, 45]; % m_agua = 0.5 kg, theta = 45 °
+% Chute Inicial
+x0 = [0.5, deg2rad(45)];
 
-% Chamando o fmincon
+% Fmincon
 options = optimoptions('fmincon', 'Display', 'iter', 'Algorithm', 'sqp');
-[x_opt, fval_opt] = fmincon(fobj, x0, [], [], [], [], lb, ub, [], options);
+[x_opt, fval] = fmincon(@obj_foguete, x0, [], [], [], [], lb, ub, [], options);
 
-% Resultado da otimização
-fprintf('Massa de água ótima: %.5f kg\n', x_opt(1));
-fprintf('Ângulo ótimo: %.5f graus\n', x_opt(2));
-fprintf('Distância máxima otimizada: %.5f m\n', -fval_opt);
-grid on;
+% Resultados
+m_agua_opt = x_opt(1);
+theta_opt = rad2deg(x_opt(2));
+d_max_opt = -fval; % Volta o valor positivo da distância
+fprintf('Solução Ótima:\nMassa Água: %.3f kg\nÂngulo: %.2f°\nDistância Máxima: %.2f m\n', ...
+    m_agua_opt, theta_opt, d_max_opt);
 
-[d_max_opt, x_traj_opt, y_traj_opt] = foguete_dist_max(x_opt(1), x_opt(2));
+% Função com os valores ótimos
+[d_max_opt, x_traj_opt, y_traj_opt] = foguete_dist_max(m_agua_opt, deg2rad(theta_opt));
 
 % Gráfico da trajetória otimizada
 figure;
 plot(x_traj_opt, y_traj_opt, 'r-', 'LineWidth', 2);
 xlabel('Distância Horizontal (m)');
 ylabel('Altura (m)');
-title('Trajetória Otimizada do Foguete');
+title('Trajetória do Foguete (Otimizada)');
 grid on;
 
-% Texto com as informações
 text(0.02*max(x_traj_opt), 0.95*max(y_traj_opt), ...
     sprintf('Massa água = %.3f kg\nÂngulo = %.2f°\nDistância = %.2f m', ...
-    x_opt(1), x_opt(2), d_max_opt), ...
+    m_agua_opt, theta_opt, d_max_opt), ...
     'FontSize', 10, 'BackgroundColor', 'white');
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% E)
+
+% Trajetórias
+[d_max_1, x_traj_1, y_traj_1] = foguete_dist_max(m_agua, theta);
+[d_max_2, x_traj_2, y_traj_2] = foguete_dist_max(m_agua_opt, deg2rad(theta_opt));
+
+% Gráfico comparativo
+figure;
+hold on;
+plot(x_traj_1, y_traj_1, 'b-', 'LineWidth', 1.5); % Trajetória 1 em azul
+plot(x_traj_2, y_traj_2, 'r-', 'LineWidth', 1.5); % Trajetória 2 em vermelho
+hold off;
+
+% Configurações do gráfico
+xlabel('Distância Horizontal (m)');
+ylabel('Altura (m)');
+title('Comparação de Trajetórias do Foguete');
+grid on;
+
+% Legenda
+legend({sprintf('Trajetória 1: Distância = %.2f m', d_max_1), ...
+        sprintf('Trajetória 2 (Otimizada): Distância = %.2f m', d_max_2)}, ...
+        'Location', 'Best');
