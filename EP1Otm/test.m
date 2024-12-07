@@ -213,7 +213,7 @@ options = optimoptions('fmincon', 'Display', 'iter', 'Algorithm', 'sqp');
 m_agua_opt = x_opt(1);
 theta_opt = rad2deg(x_opt(2));
 d_max_opt = -fval; % Volta o valor positivo da distância
-fprintf('Solução Ótima:\nMassa Água: %.3f kg\nÂngulo: %.2f°\nDistância Máxima: %.2f m\n', ...
+fprintf('Solução Ótima da FMINCON:\nMassa Água: %.3f kg\nÂngulo: %.2f°\nDistância Máxima: %.2f m\n', ...
     m_agua_opt, theta_opt, d_max_opt);
 
 % Função com os valores ótimos
@@ -257,3 +257,77 @@ grid on;
 legend({sprintf('Trajetória 1: Distância = %.2f m', d_max_1), ...
         sprintf('Trajetória 2 (Otimizada): Distância = %.2f m', d_max_2)}, ...
         'Location', 'Best');
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% PARTE 2 %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% A)
+
+% Limites das variáveis
+lbga = [0.1, deg2rad(10.1)];
+ubga = [2.9, deg2rad(89.9)];
+
+% Opções do algoritmo genético
+options = optimoptions('ga', ...
+    'PopulationSize', 100, ...          % Tamanho da população
+    'MaxGenerations', 200, ...          % Número máximo de gerações
+    'CrossoverFraction', 0.8, ...       % Fração de cruzamento
+    'Display', 'iter', ...              % Progresso no terminal
+    'PlotFcn', {@gaplotbestf});         % Gráfico da convergência
+
+% GA
+[nvars, A, b, Aeq, beq, nonlcon] = deal(2, [], [], [], [], []);
+[x_optga, fvalga] = ga(@obj_foguete, nvars, A, b, Aeq, beq, lbga, ubga, nonlcon, options);
+
+% Resultado final
+m_agua_optga = x_optga(1);  % Massa de água otimizada
+theta_optga = rad2deg(x_optga(2));  % Ângulo otimizado (em graus)
+dist_maxga = -fvalga;  % Distância máxima alcançada (positivo)
+
+fprintf('Solução Ótima da GA:\n');
+fprintf('- Massa de água ótima: %.3f kg\n', m_agua_optga);
+fprintf('- Ângulo ótimo: %.2f graus\n', theta_optga);
+fprintf('- Distância máxima: %.2f m\n', dist_maxga);
+
+% Simulação para o gráfico da trajetória
+[~, x_traj_ga, y_traj_ga] = foguete_dist_max(m_agua_optga, deg2rad(theta_optga));
+
+% Gráfico da trajetória otimizada
+figure;
+plot(x_traj_ga, y_traj_ga, 'g-', 'LineWidth', 1.5);
+xlabel('Distância Horizontal (m)');
+ylabel('Altura (m)');
+title('Trajetória do Foguete Otimizado');
+grid on;
+
+text(0.02 * max(x_traj_ga), 0.95 * max(y_traj_ga), ...
+    sprintf('Massa água = %.3f kg\nÂngulo = %.2f°\nDistância = %.2f m', ...
+    m_agua_optga, theta_optga, dist_maxga), ...
+    'FontSize', 10, 'BackgroundColor', 'white');
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% B)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% C)
+
+% Comparação GA x FMINCON
+figure;
+hold on;
+plot(x_traj_ga, y_traj_ga, 'g-', 'LineWidth', 1.5); % Trajetória GA em verde
+plot(x_traj_2, y_traj_2, 'r-', 'LineWidth', 1.5); % Trajetória FMINCON em vermelho
+hold off;
+
+% Configurações
+xlabel('Distância Horizontal (m)');
+ylabel('Altura (m)');
+title('Comparação de Trajetórias do Foguete');
+grid on;
+
+% Legenda
+legend({sprintf('Trajetória 1 (GA): Distância = %.2f m', dist_maxga), ...
+        sprintf('Trajetória 2 (FMINCON): Distância = %.2f m', d_max_2)}, ...
+        'Location', 'Best');
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% D)
